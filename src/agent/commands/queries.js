@@ -225,6 +225,206 @@ export const queryList = [
         perform: async function (agent) {
             return "Saved place names: " + agent.memory_bank.getKeys();
         }
+    },
+    {
+        name: '!advancements',
+        description: 'Check your current advancement progress and see what achievements you can work towards.',
+        perform: function (agent) {
+            let bot = agent.bot;
+            let res = 'ADVANCEMENTS';
+            
+            // Check if bot has advancement data
+            if (bot.advancements && Object.keys(bot.advancements).length > 0) {
+                res += '\n- Completed Advancements:';
+                let completedCount = 0;
+                for (const [id, advancement] of Object.entries(bot.advancements)) {
+                    if (advancement.done) {
+                        res += `\n  ✓ ${advancement.display?.title || id}`;
+                        completedCount++;
+                    }
+                }
+                if (completedCount === 0) {
+                    res += '\n  None completed yet';
+                }
+                
+                res += '\n- Available to work on:';
+                let availableCount = 0;
+                for (const [id, advancement] of Object.entries(bot.advancements)) {
+                    if (!advancement.done && advancement.display) {
+                        res += `\n  ○ ${advancement.display.title}`;
+                        if (advancement.display.description) {
+                            res += ` - ${advancement.display.description}`;
+                        }
+                        availableCount++;
+                    }
+                }
+                if (availableCount === 0) {
+                    res += '\n  No advancements available to display';
+                }
+            } else {
+                res += '\n- Advancement data not available yet.';
+                res += '\n- This is normal for new players. Advancements will appear as you complete tasks.';
+                res += '\n- Try these basic tasks to unlock your first advancements:';
+                res += '\n  • Break a block (any block)';
+                res += '\n  • Craft a crafting table';
+                res += '\n  • Make wooden tools';
+                res += '\n  • Mine stone with a pickaxe';
+                res += '\n- Use !inventory to see what you can craft';
+            }
+            
+            return pad(res);
+        }
+    },
+    {
+        name: '!getStarted',
+        description: 'Get a step-by-step guide to start working on your first advancements.',
+        perform: function (agent) {
+            let bot = agent.bot;
+            let res = 'GETTING STARTED WITH ADVANCEMENTS';
+            
+            // Check inventory to give personalized advice
+            const inventory = bot.inventory.items();
+            const hasWood = inventory.some(item => item.name.includes('log') || item.name.includes('plank'));
+            const hasStone = inventory.some(item => item.name.includes('stone') || item.name.includes('cobblestone'));
+            const hasCraftingTable = inventory.some(item => item.name === 'crafting_table');
+            const hasTools = inventory.some(item => item.name.includes('pickaxe') || item.name.includes('axe') || item.name.includes('shovel'));
+            
+            res += '\n- Current Status:';
+            res += `\n  • Wood/Planks: ${hasWood ? '✓ Have' : '✗ Need'}`;
+            res += `\n  • Stone: ${hasStone ? '✓ Have' : '✗ Need'}`;
+            res += `\n  • Crafting Table: ${hasCraftingTable ? '✓ Have' : '✗ Need'}`;
+            res += `\n  • Tools: ${hasTools ? '✓ Have' : '✗ Need'}`;
+            
+            res += '\n- Next Steps:';
+            if (!hasWood) {
+                res += '\n  1. Find and break a tree to get wood';
+                res += '\n  2. Use !nearbyBlocks to find trees nearby';
+            } else if (!hasCraftingTable) {
+                res += '\n  1. Craft a crafting table: !craft("crafting_table", 1)';
+            } else if (!hasTools) {
+                res += '\n  1. Craft wooden tools: !craft("wooden_pickaxe", 1)';
+                res += '\n  2. Then craft: !craft("wooden_axe", 1)';
+                res += '\n  3. And: !craft("wooden_shovel", 1)';
+            } else if (!hasStone) {
+                res += '\n  1. Mine stone with your pickaxe: !mine("stone", 10)';
+                res += '\n  2. Then craft stone tools for better efficiency';
+            } else {
+                res += '\n  ✓ You have the basics! Try exploring or building to unlock more advancements.';
+                res += '\n  • Use !nearbyBlocks to explore your surroundings';
+                res += '\n  • Try !craftRecipe to see what you can make';
+            }
+            
+            return pad(res);
+        }
+    },
+    {
+        name: '!learnFromMistakes',
+        description: 'Analyze recent failures and suggest better approaches to avoid repeating mistakes.',
+        perform: function (agent) {
+            let res = 'LEARNING FROM MISTAKES';
+            
+            // Get recent memory to analyze patterns
+            const memory = agent.memory_bank.memory;
+            const recentTurns = agent.history?.turns || [];
+            
+            res += '\n- Recent Issues Detected:';
+            
+            // Check for common failure patterns
+            const hasCobblestoneIssue = memory.includes('cobblestone') && memory.includes('Failed');
+            const hasToolIssue = memory.includes('tools') && memory.includes('break');
+            const hasCraftingIssue = memory.includes('craft') && memory.includes('resource');
+            
+            if (hasCobblestoneIssue) {
+                res += '\n  ⚠️ COBBLESTONE PROBLEM: You keep trying to get cobblestone but failing.';
+                res += '\n     SOLUTION: You need a pickaxe to break stone into cobblestone.';
+                res += '\n     Try: !craft("wooden_pickaxe", 1) first, then mine stone.';
+            }
+            
+            if (hasToolIssue) {
+                res += '\n  ⚠️ TOOL PROBLEM: You need tools to break blocks.';
+                res += '\n     SOLUTION: Craft wooden tools first before trying to mine.';
+                res += '\n     Order: Pickaxe → Axe → Shovel';
+            }
+            
+            if (hasCraftingIssue) {
+                res += '\n  ⚠️ CRAFTING PROBLEM: You\'re trying to craft without the right materials.';
+                res += '\n     SOLUTION: Check what you have with !inventory, then gather missing materials.';
+            }
+            
+            // Analyze recent turns for repeated failures
+            const recentFailures = recentTurns.filter(turn => 
+                turn.role === 'system' && 
+                (turn.content.includes('Failed') || turn.content.includes('Error') || turn.content.includes('Cannot'))
+            );
+            
+            if (recentFailures.length > 2) {
+                res += '\n  ⚠️ REPEATED FAILURES: You\'ve failed the same action multiple times.';
+                res += '\n     SOLUTION: Try a different approach or gather prerequisites first.';
+                res += '\n     Use !getStarted for a step-by-step guide.';
+            }
+            
+            res += '\n- Smart Approach:';
+            res += '\n  1. Always check !inventory before crafting';
+            res += '\n  2. Craft tools in order: wood → stone → iron';
+            res += '\n  3. If something fails 3 times, try a different approach';
+            res += '\n  4. Use !nearbyBlocks to find resources nearby';
+            
+            return pad(res);
+        }
+    },
+    {
+        name: '!breakLoop',
+        description: 'Break out of repetitive behavior and try a completely different approach.',
+        perform: function (agent) {
+            let res = 'BREAKING OUT OF LOOP';
+            
+            // Get current inventory and suggest alternative approaches
+            const inventory = agent.bot.inventory.items();
+            const hasWood = inventory.some(item => item.name.includes('log') || item.name.includes('plank'));
+            const hasStone = inventory.some(item => item.name.includes('stone') || item.name.includes('cobblestone'));
+            const hasCraftingTable = inventory.some(item => item.name === 'crafting_table');
+            const hasTools = inventory.some(item => item.name.includes('pickaxe') || item.name.includes('axe') || item.name.includes('shovel'));
+            
+            res += '\n- Current Situation Analysis:';
+            res += `\n  • Wood: ${hasWood ? '✓' : '✗'}`;
+            res += `\n  • Stone: ${hasStone ? '✓' : '✗'}`;
+            res += `\n  • Crafting Table: ${hasCraftingTable ? '✓' : '✗'}`;
+            res += `\n  • Tools: ${hasTools ? '✓' : '✗'}`;
+            
+            res += '\n- Alternative Strategies:';
+            
+            if (!hasWood && !hasTools) {
+                res += '\n  1. PUNCH TREES: You can break leaves and logs with your bare hands!';
+                res += '\n     Try: !punchTree or find a tree and break it manually';
+                res += '\n  2. EXPLORE: Look for different resources in other areas';
+                res += '\n     Try: !nearbyBlocks to see what\'s available';
+            } else if (hasWood && !hasCraftingTable) {
+                res += '\n  1. CRAFT TABLE: Make a crafting table from wood planks';
+                res += '\n     Try: !craft("crafting_table", 1)';
+                res += '\n  2. EXPLORE: Look for villages or structures with crafting tables';
+            } else if (hasCraftingTable && !hasTools) {
+                res += '\n  1. WOODEN TOOLS: Craft basic tools from wood';
+                res += '\n     Try: !craft("wooden_pickaxe", 1)';
+                res += '\n  2. EXPLORE: Look for tools in chests or villages';
+            } else if (hasTools && !hasStone) {
+                res += '\n  1. MINE STONE: Use your pickaxe to mine stone blocks';
+                res += '\n     Try: !mine("stone", 5) or !digDown(10)';
+                res += '\n  2. EXPLORE: Look for exposed stone in caves or cliffs';
+            } else {
+                res += '\n  1. EXPLORE: You have basics, try exploring new areas';
+                res += '\n     Try: !nearbyBlocks or !explore';
+                res += '\n  2. BUILD: Try building something to unlock building advancements';
+                res += '\n  3. CRAFT: Try crafting more advanced items';
+            }
+            
+            res += '\n- Emergency Options:';
+            res += '\n  • !goToPlayer("firelemon333", 3) - Go to human for help';
+            res += '\n  • !explore - Random exploration';
+            res += '\n  • !nearbyBlocks - See what\'s around you';
+            res += '\n  • !inventory - Check what you actually have';
+            
+            return pad(res);
+        }
     }, 
     {
         name: '!checkBlueprintLevel',

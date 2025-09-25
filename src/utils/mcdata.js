@@ -7,6 +7,12 @@ import { plugin as pvp } from 'mineflayer-pvp';
 import { plugin as collectblock } from 'mineflayer-collectblock';
 import { plugin as autoEat } from 'mineflayer-auto-eat';
 import plugin from 'mineflayer-armor-manager';
+// import { plugin as tool } from 'mineflayer-tool';
+// import utilsPkg from 'mineflayer-utils';
+// const utils = utilsPkg.plugin;
+import { advancementTracker } from '../plugins/advancement_tracker.js';
+import { smartBuilder } from '../plugins/smart_builder.js';
+import { advancementHunter } from '../plugins/advancement_hunter.js';
 const armorManager = plugin;
 let mc_version = null;
 let mcdata = null;
@@ -70,6 +76,11 @@ export function initBot(username) {
     bot.loadPlugin(collectblock);
     bot.loadPlugin(autoEat);
     bot.loadPlugin(armorManager); // auto equip armor
+    // bot.loadPlugin(tool); // tool management
+    // bot.loadPlugin(utils); // utility functions
+    bot.loadPlugin(advancementTracker); // custom advancement tracking
+    bot.loadPlugin(smartBuilder); // custom smart building
+    bot.loadPlugin(advancementHunter); // autonomous advancement hunting
     bot.once('resourcePack', () => {
         bot.acceptResourcePack();
     });
